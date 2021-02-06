@@ -155,7 +155,7 @@ LoadRes GB::load(char const *romfiledata, unsigned romfilelength, unsigned const
 		setInitState(state, !(flags & FORCE_DMG), flags & GBA_CGB);
 		p_->cpu.loadState(state);
 		
-		if (p_->loadflags & GBA_CGB) {
+		if (flags & GBA_CGB) {
 			p_->cpu.stall(971600);
 			p_->cpu.divReset();
 			p_->cpu.stall(8);
