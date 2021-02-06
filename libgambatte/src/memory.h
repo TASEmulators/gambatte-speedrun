@@ -57,6 +57,8 @@ public:
 	bool getMemoryArea(int which, unsigned char **data, int *length);
 
 	unsigned long stop(unsigned long cycleCounter, bool& skip);
+	void stall(unsigned long cycleCounter, unsigned long cycles);
+	void divReset(unsigned long cc) { nontrivial_ff_write(0x04, 0, cc); }
 	bool isCgb() const { return lcd_.isCgb(); }
 	bool isCgbDmg() const { return lcd_.isCgbDmg(); }
 	bool ime() const { return intreq_.ime(); }

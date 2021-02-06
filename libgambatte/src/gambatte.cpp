@@ -95,6 +95,13 @@ void GB::reset() {
 			p_->cpu.loadSavedata(s);
 			std::free(s);
 		}
+		
+		if (p_->loadflags & GBA_CGB) {
+			p_->cpu.stall(971600);
+			p_->cpu.divReset();
+			p_->cpu.stall(8);
+		} 
+		
 	}
 }
 
