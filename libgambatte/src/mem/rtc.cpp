@@ -151,7 +151,7 @@ void Rtc::setS(unsigned const newSeconds, unsigned const long cc) {
 	if (dataDh_ & 0x40)
 		haltTime_ = seconds;
 	else
-		time_.set(seconds, cc);
+		time_.reset(seconds, cc);
 }
 
 SYNCFUNC(Rtc)
