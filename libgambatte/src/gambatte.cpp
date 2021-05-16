@@ -155,6 +155,10 @@ bool GB::isCgb() const {
 	return p_->cpu.isCgb();
 }
 
+bool GB::isCgbDmg() const {
+	return p_->cpu.isCgbDmg();
+}
+
 bool GB::isLoaded() const {
 	return p_->cpu.loaded();
 }

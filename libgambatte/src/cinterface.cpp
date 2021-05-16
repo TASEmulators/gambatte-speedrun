@@ -125,6 +125,10 @@ GBEXPORT int gambatte_iscgb(GB *g) {
 	return g->isCgb();
 }
 
+GBEXPORT int gambatte_iscgbdmg(GB *g) {
+	return g->isCgbDmg();
+}
+
 GBEXPORT int gambatte_isloaded(GB *g) {
 	return g->isLoaded();
 }
