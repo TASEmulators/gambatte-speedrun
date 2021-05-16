@@ -136,6 +136,9 @@ public:
 	/** Returns true if the currently loaded ROM image is treated as having CGB support. */
 	bool isCgb() const;
 
+	/** Returns true if the currently loaded ROM image is treated as having CGB-DMG support. */
+	bool isCgbDmg() const;
+
 	/** Returns true if a ROM image is loaded. */
 	bool isLoaded() const;
 
