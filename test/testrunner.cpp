@@ -1,5 +1,7 @@
 #include "gambatte.h"
 #include "transfer_ptr.h"
+#include "scoped_ptr.h"
+#include "../src/file/file.h"
 #include <png.h>
 #include <algorithm>
 #include <string>
@@ -8,6 +10,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <cstring>
+#include <zlib.h>
 
 namespace {
 
@@ -280,28 +283,58 @@ static void runTestRom(
 	gambatte::GB gb;
 
 	if (cgb) {
-		if (gb.loadBios("bios.gbc", 0x900, 0x31672598)) {
+		scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gbc"));
+		if (bios->fail()) {
 			std::fprintf(stderr, "Failed to load bios image file bios.gbc\n");
 			std::abort();
 		}
+		std::size_t const biossize = bios->size();
+		char biosdata[biossize];
+		bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
+		if (biossize != 0x900 || (crc32(0, (const unsigned char*)biosdata, biossize) != 0x41884E46)) {
+			std::fprintf(stderr, "Failed to load bios image file bios.gbc\n");
+			std::abort();
+		}
+		gb.loadBios(biosdata, 0x900);
 	} else {
-		if (gb.loadBios("bios.gb", 0x100, 0x580A33B9)) {
+		scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gb"));
+		if (bios->fail() ) {
 			std::fprintf(stderr, "Failed to load bios image file bios.gb\n");
 			std::abort();
 		}
+		std::size_t const biossize = bios->size();
+		char biosdata[biossize];
+		bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
+		if (biossize != 0x100 || (crc32(0, (const unsigned char*)biosdata, biossize) != 0x59C8598E)) {
+			std::fprintf(stderr, "Failed to load bios image file bios.gb\n");
+			std::abort();
+		}
+		gb.loadBios(biosdata, 0x100);
 	}
 
-	if (gb.load(file, cgb * gambatte::GB::LoadFlag::CGB_MODE)) {
+	scoped_ptr<gambatte::File> const rom(gambatte::newFileInstance(file));
+	std::size_t const filesize = rom->size();
+	char romdata[filesize];
+	rom->read(reinterpret_cast<char *>(romdata), sizeof romdata);
+
+	if (gb.load(romdata, filesize, cgb * gambatte::GB::LoadFlag::CGB_MODE)) {
 		std::fprintf(stderr, "Failed to load ROM image file %s\n", file.c_str());
 		std::abort();
 	}
 
-	if (!cgb) {
+	if (cgb) {
+		unsigned lut[32768];
+		int i = 0;
+		for (int b = 0; b < 32; b++)
+			for (int g = 0; g < 32; g++)
+				for (int r = 0; r < 32; r++)
+					lut[i++] = ((r * 3 + g * 2 + b * 11) >> 1) | ((g * 3 + b) << 1) << 8 | ((r * 13 + g * 2 + b) >> 1) << 16 | 255 << 24;
+
+		gb.setCgbPalette(lut);
+	} else {
 		for (int i = 0; i < 12; ++i)
 			gb.setDmgPaletteColor(i / 4, i % 4, (3 - (i & 3)) * 85 * 0x010101ul);
 	}
-
-	gb.setTrueColors(false);
 
 	std::putchar(cgb ? 'c' : 'd');
 	std::fflush(stdout);
@@ -310,7 +343,9 @@ static void runTestRom(
 
 	while (samplesLeft >= 0) {
 		std::size_t samples = samples_per_frame;
-		gb.runFor(framebuf, gb_width, audiobuf, samples);
+		if (gb.runFor(audiobuf, samples) > 0)
+			gb.blitTo(framebuf, gb_width);
+
 		samplesLeft -= samples;
 	}
 }
