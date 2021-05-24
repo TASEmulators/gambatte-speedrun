@@ -291,25 +291,27 @@ static void runTestRom(
 		std::size_t const biossize = bios->size();
 		char biosdata[biossize];
 		bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
-		if (biossize != 0x900 || (crc32(0, (const unsigned char*)biosdata, biossize) != 0x41884E46)) {
+		if (biossize == 0x900 && (crc32(0, (unsigned char*)biosdata, biossize) == 0x41884E46))
+			gb.loadBios(biosdata, 0x900);
+		else {
 			std::fprintf(stderr, "Failed to load bios image file bios.gbc\n");
 			std::abort();
 		}
-		gb.loadBios(biosdata, 0x900);
 	} else {
 		scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gb"));
-		if (bios->fail() ) {
+		if (bios->fail()) {
 			std::fprintf(stderr, "Failed to load bios image file bios.gb\n");
 			std::abort();
 		}
 		std::size_t const biossize = bios->size();
 		char biosdata[biossize];
 		bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
-		if (biossize != 0x100 || (crc32(0, (const unsigned char*)biosdata, biossize) != 0x59C8598E)) {
+		if (biossize == 0x100 && (crc32(0, (unsigned char*)biosdata, biossize) == 0x59C8598E))
+			gb.loadBios(biosdata, 0x100);
+		else {
 			std::fprintf(stderr, "Failed to load bios image file bios.gb\n");
 			std::abort();
 		}
-		gb.loadBios(biosdata, 0x100);
 	}
 
 	scoped_ptr<gambatte::File> const rom(gambatte::newFileInstance(file));
