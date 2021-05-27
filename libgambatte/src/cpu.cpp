@@ -127,7 +127,7 @@ void CPU::loadState(SaveState const &state) {
 #define hl() ( h * 0x100u | l )
 
 #define READ(dest, addr) do { (dest) = mem_.read(addr, cycleCounter); cycleCounter += 4; } while (0)
-#define PC_READ(dest) do { (dest) = mem_.read_excb(pc, cycleCounter, false); pc = (pc + 1) & 0xFFFF; cycleCounter += 4; } while (0)
+#define PC_READ(dest, operand) do { (dest) = (operand) = mem_.read_excb(pc, cycleCounter, false); pc = (pc + 1) & 0xFFFF; cycleCounter += 4; } while (0)
 #define PC_READ_FIRST(dest) do { (dest) = mem_.read_excb(pc, cycleCounter, true); pc = (pc + 1) & 0xFFFF; cycleCounter += 4; } while (0)
 #define FF_READ(dest, addr) do { (dest) = mem_.ff_read(addr, cycleCounter); cycleCounter += 4; } while (0)
 
@@ -279,9 +279,9 @@ void CPU::loadState(SaveState const &state) {
 // 16-BIT LOADS:
 // ld rr,nn (12 cycles)
 // set rr to 16-bit value of next 2 bytes in memory
-#define ld_rr_nn(r1, r2) do { \
-	PC_READ(r2); \
-	PC_READ(r1); \
+#define ld_rr_nn(r1, operandLow, r2, operandHigh) do { \
+	PC_READ(r2, operandHigh); \
+	PC_READ(r1, operandLow); \
 } while (0)
 
 // push rr (16 cycles):
@@ -429,7 +429,7 @@ void CPU::loadState(SaveState const &state) {
 
 #define sp_plus_n(sumout) do { \
 	unsigned disp; \
-	PC_READ(disp); \
+	PC_READ(disp, operandHigh); \
 	disp = (disp ^ 0x80) - 0x80; \
 \
 	unsigned const res = sp + disp; \
@@ -445,8 +445,8 @@ void CPU::loadState(SaveState const &state) {
 // Jump to address stored in the next two bytes in memory:
 #define jp_nn() do { \
 	unsigned imm0, imm1; \
-	PC_READ(imm0); \
-	PC_READ(imm1); \
+	PC_READ(imm0, operandHigh); \
+	PC_READ(imm1, operandLow); \
 	PC_MOD(imm1 << 8 | imm0); \
 } while (0)
 
@@ -454,7 +454,7 @@ void CPU::loadState(SaveState const &state) {
 // Jump to value of next (signed) byte in memory+current address:
 #define jr_disp() do { \
 	unsigned disp; \
-	PC_READ(disp); \
+	PC_READ(disp, operandHigh); \
 	disp = (disp ^ 0x80) - 0x80; \
 	PC_MOD((pc + disp) & 0xFFFF); \
 } while (0)
@@ -513,6 +513,8 @@ void CPU::process(unsigned long const cycles) {
 			}
 		} else while (cycleCounter < mem_.nextEventTime()) {
 			unsigned char opcode;
+			unsigned char operandHigh;
+			unsigned char operandLow;
 
 #ifdef DLLABLES
 			for (int i = 0; i < numInterruptAddresses; ++i) {
@@ -531,8 +533,8 @@ void CPU::process(unsigned long const cycles) {
 				break;
 #endif
 
+			int result[14];
 			if (tracecallback) {
-				int result[14];
 				result[0] = cycleCounter;
 				result[1] = pc;
 				result[2] = sp;
@@ -545,14 +547,9 @@ void CPU::process(unsigned long const cycles) {
 				result[9] = h;
 				result[10] = l;
 				result[11] = prefetched_;
-				//PC_READ_FIRST(opcode);
-				result[12] = opcode;
-				result[13] = mem_.debugGetLY();
-				tracecallback((void *)result);
+				result[13] = mem_.getLy(cycleCounter);
 			}
-			else {
-				//PC_READ_FIRST(opcode);
-			}
+
 
 			if (!prefetched_) {
 				PC_READ_FIRST(opcode);
@@ -567,7 +564,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0x00:
 				break;
 			case 0x01:
-				ld_rr_nn(b, c);
+				ld_rr_nn(b, operandLow, c, operandHigh);
 				break;
 			case 0x02:
 				WRITE(bc(), a);
@@ -582,7 +579,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(b); 
 				break;
 			case 0x06:
-				PC_READ(b);
+				PC_READ(b, operandHigh);
 				break;
 
 				// rlca (4 cycles):
@@ -599,8 +596,8 @@ void CPU::process(unsigned long const cycles) {
 			case 0x08:
 				{
 					unsigned imml, immh;
-					PC_READ(imml);
-					PC_READ(immh);
+					PC_READ(imml, operandHigh);
+					PC_READ(immh, operandLow);
 
 					unsigned const addr = immh << 8 | imml;
 					WRITE(addr, sp & 0xFF);
@@ -625,7 +622,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(c);
 				break;
 			case 0x0E:
-				PC_READ(c);
+				PC_READ(c, operandHigh);
 				break;
 
 				// rrca (4 cycles):
@@ -640,7 +637,7 @@ void CPU::process(unsigned long const cycles) {
 				// stop (4 cycles):
 				// Halt CPU and LCD display until button pressed:
 			case 0x10:
-				PC_READ(opcode_);
+				PC_READ(opcode_, operandHigh);
 				cycleCounter = mem_.stop(cycleCounter - 4, prefetched_);
 				if (cycleCounter < mem_.nextEventTime()) {
 					unsigned long cycles = mem_.nextEventTime() - cycleCounter;
@@ -650,7 +647,7 @@ void CPU::process(unsigned long const cycles) {
 				break;
 
 			case 0x11:
-				ld_rr_nn(d, e);
+				ld_rr_nn(d, operandLow, e, operandHigh);
 				break;
 			case 0x12:
 				WRITE(de(), a);
@@ -665,7 +662,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(d);
 				break;
 			case 0x16:
-				PC_READ(d);
+				PC_READ(d, operandHigh);
 				break;
 
 				// rla (4 cycles):
@@ -701,7 +698,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(e);
 				break;
 			case 0x1E:
-				PC_READ(e);
+				PC_READ(e, operandHigh);
 				break;
 
 				// rra (4 cycles):
@@ -729,7 +726,7 @@ void CPU::process(unsigned long const cycles) {
 
 				break;
 
-			case 0x21: ld_rr_nn(h, l); break;
+			case 0x21: ld_rr_nn(h, operandLow, l, operandHigh); break;
 
 				// ldi (hl),a (8 cycles):
 				// Put A into memory address in hl. Increment HL:
@@ -755,7 +752,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(h);
 				break;
 			case 0x26:
-				PC_READ(h);
+				PC_READ(h, operandHigh);
 				break;
 
 				// daa (4 cycles):
@@ -825,7 +822,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(l);
 				break;
 			case 0x2E:
-				PC_READ(l);
+				PC_READ(l, operandHigh);
 				break;
 
 				// cpl (4 cycles):
@@ -851,8 +848,8 @@ void CPU::process(unsigned long const cycles) {
 			case 0x31:
 				{
 					unsigned imml, immh;
-					PC_READ(imml);
-					PC_READ(immh);
+					PC_READ(imml, operandHigh);
+					PC_READ(immh, operandLow);
 
 					sp = immh << 8 | imml;
 				}
@@ -909,7 +906,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0x36:
 				{
 					unsigned imm;
-					PC_READ(imm);
+					PC_READ(imm, operandHigh);
 					WRITE(hl(), imm);
 				}
 
@@ -973,7 +970,7 @@ void CPU::process(unsigned long const cycles) {
 				dec_r(a);
 				break;
 			case 0x3E:
-				PC_READ(a);
+				PC_READ(a, operandHigh);
 				break;
 
 				// ccf (4 cycles):
@@ -1214,7 +1211,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xC6:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					add_a_u8(data);
 				}
 
@@ -1255,7 +1252,7 @@ void CPU::process(unsigned long const cycles) {
 
 				// CB OPCODES (Shifts, rotates and bits):
 			case 0xCB:
-				PC_READ(opcode);
+				PC_READ(opcode, operandHigh);
 
 				switch (opcode) {
 				case 0x00: rlc_r(b); break;
@@ -1689,7 +1686,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xCE:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					adc_a_u8(data);
 				}
 
@@ -1749,7 +1746,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xD6:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					sub_a_u8(data);
 				}
 
@@ -1816,7 +1813,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xDE:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					sbc_a_u8(data);
 				}
 
@@ -1831,7 +1828,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xE0:
 				{
 					unsigned imm;
-					PC_READ(imm);
+					PC_READ(imm, operandHigh);
 					FF_WRITE(imm, a);
 				}
 
@@ -1859,7 +1856,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xE6:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					and_a_u8(data);
 				}
 
@@ -1888,8 +1885,8 @@ void CPU::process(unsigned long const cycles) {
 			case 0xEA:
 				{
 					unsigned imml, immh;
-					PC_READ(imml);
-					PC_READ(immh);
+					PC_READ(imml, operandHigh);
+					PC_READ(immh, operandLow);
 					WRITE(immh << 8 | imml, a);
 				}
 
@@ -1904,7 +1901,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xEE:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					xor_a_u8(data);
 				}
 
@@ -1919,7 +1916,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xF0:
 				{
 					unsigned imm;
-					PC_READ(imm);
+					PC_READ(imm, operandHigh);
 					FF_READ(a, imm);
 				}
 
@@ -1964,7 +1961,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xF6:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 					or_a_u8(data);
 				}
 
@@ -1998,8 +1995,8 @@ void CPU::process(unsigned long const cycles) {
 			case 0xFA:
 				{
 					unsigned imml, immh;
-					PC_READ(imml);
-					PC_READ(immh);
+					PC_READ(imml, operandHigh);
+					PC_READ(immh, operandLow);
 
 					READ(a, immh << 8 | imml);
 				}
@@ -2019,7 +2016,7 @@ void CPU::process(unsigned long const cycles) {
 			case 0xFE:
 				{
 					unsigned data;
-					PC_READ(data);
+					PC_READ(data, operandHigh);
 
 					cp_a_u8(data);
 				}
@@ -2030,8 +2027,12 @@ void CPU::process(unsigned long const cycles) {
 				rst_n(0x38);
 				break;
 			}
-		}
 
+			if (tracecallback) {
+				result[12] = opcode << 16 | operandHigh << 8 | operandLow;
+				tracecallback((void*)result);
+			}
+		}
 		//pc_ = pc;
 		cycleCounter = mem_.event(cycleCounter);
 	}
