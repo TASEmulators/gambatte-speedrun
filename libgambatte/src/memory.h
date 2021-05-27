@@ -40,6 +40,7 @@ public:
 	unsigned curRomBank() const { return cart_.curRomBank(); }
 	char const * romTitle() const { return cart_.romTitle(); }
 	int debugGetLY() const { return lcd_.debugGetLY(); }
+	int getLy(unsigned long const cc) { return nontrivial_ff_read(0x44, cc); }
 	void setStatePtrs(SaveState &state);
 	void saveRtcState(SaveState& state, unsigned long cc);
 	void loadState(SaveState const &state);
@@ -323,7 +324,7 @@ private:
 	unsigned char serialCnt_;
 	bool blanklcd_;
 	bool biosMode_;
-	bool agbMode_;
+	bool agbFlag_;
 	unsigned long basetime_;
 	bool stopped_;
 	enum HdmaState { hdma_low, hdma_high, hdma_requested } haltHdmaState_;

@@ -1,5 +1,7 @@
 #include "gambatte.h"
 #include "transfer_ptr.h"
+#include "scoped_ptr.h"
+#include "../src/file/file.h"
 #include <png.h>
 #include <algorithm>
 #include <string>
@@ -8,6 +10,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <cstring>
+#include <zlib.h>
 
 namespace {
 
@@ -18,6 +21,10 @@ unsigned const gb_width = 160, gb_height = 144;
 std::size_t const samples_per_frame = 35112;
 std::size_t const audiobuf_size = samples_per_frame + 2064;
 std::size_t const framebuf_size = gb_width * gb_height;
+
+bool useDmgBios = true;
+bool useCgbBios = true;
+bool useAgbBios = true;
 
 static void readPng(gambatte::uint_least32_t out[], std::FILE &file) {
 	struct PngContext {
@@ -276,32 +283,95 @@ static void runTestRom(
 		gambatte::uint_least32_t framebuf[],
 		gambatte::uint_least32_t audiobuf[],
 		std::string const &file,
-		bool const cgb) {
+		bool const cgb,
+		bool const agb) {
 	gambatte::GB gb;
 
 	if (cgb) {
-		if (gb.loadBios("bios.gbc", 0x900, 0x31672598)) {
-			std::fprintf(stderr, "Failed to load bios image file bios.gbc\n");
-			std::abort();
+		if (agb && useAgbBios) {
+			scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gba"));
+			if (bios->fail()) {
+				std::fprintf(stderr, "Failed to load bios image file bios.gba, using post BIOS state instead.\n");
+				useAgbBios = false;
+				goto loadRom;
+			}
+			std::size_t const biossize = bios->size();
+			char biosdata[biossize];
+			bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
+			if ((biossize == 0x900) && (crc32(0, (unsigned char*)biosdata, biossize) == 0xFFD6B0F1))
+				gb.loadBios(biosdata, 0x900);
+			else {
+				std::fprintf(stderr, "Failed to load bios image file bios.gba, using post BIOS state instead.\n");
+				useAgbBios = false;
+			}
+		} else if (!agb && useCgbBios) {
+			scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gbc"));
+			if (bios->fail()) {
+				std::fprintf(stderr, "Failed to load bios image file bios.gbc, using post BIOS state instead.\n");
+				useCgbBios = false;
+				goto loadRom;
+			}
+			std::size_t const biossize = bios->size();
+			char biosdata[biossize];
+			bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
+			if ((biossize == 0x900) && (crc32(0, (unsigned char*)biosdata, biossize) == 0x41884E46))
+				gb.loadBios(biosdata, 0x900);
+			else {
+				std::fprintf(stderr, "Failed to load bios image file bios.gbc, using post BIOS state instead.\n");
+				useCgbBios = false;
+			}
 		}
-	} else {
-		if (gb.loadBios("bios.gb", 0x100, 0x580A33B9)) {
-			std::fprintf(stderr, "Failed to load bios image file bios.gb\n");
-			std::abort();
+	} else if (!cgb && useDmgBios) {
+		scoped_ptr<gambatte::File> const bios(gambatte::newFileInstance("bios.gb"));
+		if (bios->fail()) {
+			std::fprintf(stderr, "Failed to load bios image file bios.gb, using post BIOS state instead.\n");
+			useDmgBios = false;
+			goto loadRom;
+		}
+		std::size_t const biossize = bios->size();
+		char biosdata[biossize];
+		bios->read(reinterpret_cast<char *>(biosdata), sizeof biosdata);
+		if ((biossize == 0x100) && (crc32(0, (unsigned char*)biosdata, biossize) == 0x59C8598E))
+			gb.loadBios(biosdata, 0x100);
+		else {
+			std::fprintf(stderr, "Failed to load bios image file bios.gb, using post BIOS state instead.\n");
+			useDmgBios = false;
 		}
 	}
 
-	if (gb.load(file, cgb * gambatte::GB::LoadFlag::CGB_MODE)) {
+loadRom:
+	scoped_ptr<gambatte::File> const rom(gambatte::newFileInstance(file));
+	if (rom->fail()) {
+		std::fprintf(stderr, "Failed to load ROM image file %s\n", file.c_str());
+		std::abort();
+	}
+	std::size_t const filesize = rom->size();
+	
+	int flags = (cgb * gambatte::GB::LoadFlag::CGB_MODE)
+	| ((cgb && agb) * gambatte::GB::LoadFlag::GBA_FLAG)
+	| (!((agb && useAgbBios) || (cgb && useCgbBios) || (!cgb && useDmgBios)) * gambatte::GB::LoadFlag::NO_BIOS);
+	
+	char romdata[filesize];
+	rom->read(reinterpret_cast<char *>(romdata), sizeof romdata);
+
+	if (gb.load(romdata, filesize, flags)) {
 		std::fprintf(stderr, "Failed to load ROM image file %s\n", file.c_str());
 		std::abort();
 	}
 
-	if (!cgb) {
+	if (cgb) {
+		unsigned lut[32768];
+		int i = 0;
+		for (int b = 0; b < 32; b++)
+			for (int g = 0; g < 32; g++)
+				for (int r = 0; r < 32; r++)
+					lut[i++] = ((r * 3 + g * 2 + b * 11) >> 1) | ((g * 3 + b) << 1) << 8 | ((r * 13 + g * 2 + b) >> 1) << 16 | 255 << 24;
+
+		gb.setCgbPalette(lut);
+	} else {
 		for (int i = 0; i < 12; ++i)
 			gb.setDmgPaletteColor(i / 4, i % 4, (3 - (i & 3)) * 85 * 0x010101ul);
 	}
-
-	gb.setTrueColors(false);
 
 	std::putchar(cgb ? 'c' : 'd');
 	std::fflush(stdout);
@@ -310,22 +380,24 @@ static void runTestRom(
 
 	while (samplesLeft >= 0) {
 		std::size_t samples = samples_per_frame;
-		gb.runFor(framebuf, gb_width, audiobuf, samples);
+		if (gb.runFor(audiobuf, samples) > 0)
+			gb.blitTo(framebuf, gb_width);
+
 		samplesLeft -= samples;
 	}
 }
 
-static bool runStrTest(std::string const &romfile, bool cgb, std::string const &outstr) {
+static bool runStrTest(std::string const &romfile, bool cgb, bool agb, std::string const &outstr) {
 	gambatte::uint_least32_t audiobuf[audiobuf_size];
 	gambatte::uint_least32_t framebuf[framebuf_size];
-	runTestRom(framebuf, audiobuf, romfile, cgb);
+	runTestRom(framebuf, audiobuf, romfile, cgb, agb);
 	return evaluateStrTestResults(audiobuf, framebuf, romfile, outstr);
 }
 
-static bool runPngTest(std::string const &romfile, bool cgb, std::FILE &pngfile) {
+static bool runPngTest(std::string const &romfile, bool cgb, bool agb, std::FILE &pngfile) {
 	gambatte::uint_least32_t audiobuf[audiobuf_size];
 	gambatte::uint_least32_t framebuf[framebuf_size];
-	runTestRom(framebuf, audiobuf, romfile, cgb);
+	runTestRom(framebuf, audiobuf, romfile, cgb, agb);
 
 	gambatte::uint_least32_t pngbuf[framebuf_size];
 	readPng(pngbuf, pngfile);
@@ -349,50 +421,113 @@ static file_ptr openFile(std::string const &filename) {
 } // anon ns
 
 int main(int const argc, char *argv[]) {
-	int numTestsRun = 0;
-	int numTestsSucceeded = 0;
+	int totalNumTestsRun = 0;
+	int totalNumTestsSucceeded = 0;
+	int dmgNumTestsRun = 0;
+	int dmgNumTestsSucceeded = 0;
+	int cgbNumTestsRun = 0;
+	int cgbNumTestsSucceeded = 0;
+	int agbNumTestsRun = 0;
+	int agbNumTestsSucceeded = 0;
 
 	for (int i = 1; i < argc; ++i) {
 		std::string const s = extensionStripped(argv[i]);
 		char const *dmgout = 0;
 		char const *cgbout = 0;
+		char const *agbout = 0; // FIXME: Actual AGB results
 
 		if (s.find("dmg08_cgb04c_out") != std::string::npos) {
-			dmgout = cgbout = "dmg08_cgb04c_out";
+			dmgout = cgbout = agbout = "dmg08_cgb04c_out";
 		} else {
 			if (s.find("dmg08_out") != std::string::npos) {
 				dmgout = "dmg08_out";
 
 				if (s.find("cgb04c_out") != std::string::npos)
-					cgbout = "cgb04c_out";
+					cgbout = agbout = "cgb04c_out";
 			} else if (s.find("_out") != std::string::npos)
-				cgbout = "_out";
+				cgbout = agbout = "_out";
+		}
+		if (agbout) {
+			if (runStrTest(argv[i],  true,  true, agbout)) {
+				++totalNumTestsSucceeded;
+				++agbNumTestsSucceeded;
+			}
+			++agbNumTestsRun;
+			++totalNumTestsRun;
 		}
 		if (cgbout) {
-			numTestsSucceeded += runStrTest(argv[i],  true, cgbout);
-			++numTestsRun;
+			if (runStrTest(argv[i],  true, false, cgbout)) {
+				++totalNumTestsSucceeded;
+				++cgbNumTestsSucceeded;
+			}
+			++totalNumTestsRun;
+			++cgbNumTestsRun;
 		}
 		if (dmgout) {
-			numTestsSucceeded += runStrTest(argv[i], false, dmgout);
-			++numTestsRun;
+			if (runStrTest(argv[i], false, false, dmgout)) {
+				++totalNumTestsSucceeded;
+				++dmgNumTestsSucceeded;
+			}
+			++totalNumTestsRun;
+			++dmgNumTestsRun;
 		}
 
-		if (file_ptr png = openFile(s + "_dmg08_cgb04c.png")) {
-			numTestsSucceeded += runPngTest(argv[i],  true, *png);
-			numTestsSucceeded += runPngTest(argv[i], false, *png);
-			numTestsRun += 2;
+		if (file_ptr png = openFile(s + "_dmg08_cgb04c.png")) { // FIXME: confirm if agb is identical here
+			if (runPngTest(argv[i],  true,  true, *png)) {
+				++totalNumTestsSucceeded;
+				++agbNumTestsSucceeded;
+			}
+			if (runPngTest(argv[i],  true, false, *png)) {
+				++totalNumTestsSucceeded;
+				++cgbNumTestsSucceeded;
+			}
+			if (runPngTest(argv[i], false, false, *png)) {
+				++totalNumTestsSucceeded;
+				++dmgNumTestsSucceeded;
+			}
+			totalNumTestsRun += 3;
+			++agbNumTestsRun;
+			++cgbNumTestsRun;
+			++dmgNumTestsRun;
 		} else {
+			if (file_ptr p = openFile(s + "_cgb04c.png")) { // FIXME: we need agb images
+				if (runPngTest(argv[i],  true,  true, *p)) {
+					++totalNumTestsSucceeded;
+					++agbNumTestsSucceeded;
+				}
+				++totalNumTestsRun;
+				++agbNumTestsRun;
+			}
 			if (file_ptr p = openFile(s + "_cgb04c.png")) {
-				numTestsSucceeded += runPngTest(argv[i],  true, *p);
-				++numTestsRun;
+				if (runPngTest(argv[i],  true, false, *p)) {
+					++totalNumTestsSucceeded;
+					++cgbNumTestsSucceeded;
+				}
+				++totalNumTestsRun;
+				++cgbNumTestsRun;
 			}
 			if (file_ptr p = openFile(s + "_dmg08.png")) {
-				numTestsSucceeded += runPngTest(argv[i], false, *p);
-				++numTestsRun;
+				if (runPngTest(argv[i], false, false, *p)) {
+					++totalNumTestsSucceeded;
+					++dmgNumTestsSucceeded;
+				}
+				++totalNumTestsRun;
+				++dmgNumTestsRun;
 			}
 		}
 	}
 
-	std::printf("\n\nRan %d tests.\n", numTestsRun);
-	std::printf("%d failures.\n", numTestsRun - numTestsSucceeded);
+	std::printf("\n\nRan %d total tests.\n", totalNumTestsRun);
+	std::printf("%d total failures.\n", totalNumTestsRun - totalNumTestsSucceeded);
+
+	std::printf("\nRan %d AGB tests.\n", agbNumTestsRun);
+	std::printf("%d AGB failures.\n", agbNumTestsRun - agbNumTestsSucceeded);
+
+	std::printf("\nRan %d CGB tests.\n", cgbNumTestsRun);
+	std::printf("%d CGB failures.\n", cgbNumTestsRun - cgbNumTestsSucceeded);
+
+	std::printf("\nRan %d DMG tests.\n", dmgNumTestsRun);
+	std::printf("%d DMG failures.\n\n", dmgNumTestsRun - dmgNumTestsSucceeded);
+	
+	return (cgbNumTestsRun - cgbNumTestsSucceeded) || (dmgNumTestsRun - dmgNumTestsSucceeded);
 }

@@ -84,6 +84,7 @@ public:
 	std::size_t fillSoundBuffer() { return mem_.fillSoundBuffer(cycleCounter_); }
 	void stall(unsigned long cycles) { mem_.stall(cycleCounter_, cycles); }
 	bool isCgb() const { return mem_.isCgb(); }
+	bool isCgbDmg() const { return mem_.isCgbDmg(); }
 
 	void setDmgPaletteColor(int palNum, int colorNum, unsigned long rgb32) {
 		mem_.setDmgPaletteColor(palNum, colorNum, rgb32);

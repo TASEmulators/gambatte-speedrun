@@ -843,7 +843,7 @@ void Memory::nontrivial_ff_write(unsigned const p, unsigned data, unsigned long 
 		break;
 	case 0x07:
 		data |= 0xF8;
-		tima_.setTac(data, cc, TimaInterruptRequester(intreq_), agbMode_);
+		tima_.setTac(data, cc, TimaInterruptRequester(intreq_), agbFlag_);
 		break;
 	case 0x0F:
 		updateIrqs(cc + 1 + isDoubleSpeed());
@@ -1305,7 +1305,7 @@ void Memory::nontrivial_write(unsigned const p, unsigned const data, unsigned lo
 	else if (p - mm_hram_begin >= 0x7Fu) {
 		long const ffp = static_cast<long>(p) - mm_io_begin;
 		if (ffp < 0) {
-			if (agbMode_ && (p >= (mm_oam_begin + oam_size) && p < mm_io_begin))
+			if (agbFlag_ && (p >= (mm_oam_begin + oam_size) && p < mm_io_begin))
 				return;
 			if (lcd_.oamWritable(cc) && oamDmaPos_ >= oam_size
 				&& (p < mm_oam_begin + oam_size || isCgb())) {
@@ -1327,10 +1327,10 @@ LoadRes Memory::loadROM(char const *romfiledata, unsigned romfilelength, unsigne
 	if (LoadRes const fail = cart_.loadROM(romfiledata, romfilelength, cgbMode, multicartCompat))
 		return fail;
 
-	psg_.init(cart_.isCgb());
-	lcd_.reset(ioamhram_, cart_.vramdata(), cart_.isCgb());
+	agbFlag_ = flags & GB::LoadFlag::GBA_FLAG;
 
-	agbMode_ = flags & GB::LoadFlag::GBA_FLAG;
+	psg_.init(cart_.isCgb());
+	lcd_.reset(ioamhram_, cart_.vramdata(), cart_.isCgb(), agbFlag_);
 
 	return LOADRES_OK;
 }

@@ -69,7 +69,7 @@ void GB::blitTo(gambatte::uint_least32_t *videoBuf, std::ptrdiff_t pitch) {
 
 	for (int i = 0; i < 144; i++)
 	{
-		std::memcpy(dst, src, sizeof gambatte::uint_least32_t * 160);
+		std::memcpy(dst, src, sizeof (gambatte::uint_least32_t) * 160);
 		src += 160;
 		dst += pitch;
 	}
@@ -81,9 +81,12 @@ void GB::reset() {
 		p_->cpu.setStatePtrs(state);
 		p_->cpu.saveRtcState(state);
 		setInitState(state, p_->loadflags & CGB_MODE, p_->loadflags & GBA_FLAG);
+		if (p_->loadflags & NO_BIOS)
+			setPostBiosState(state, p_->loadflags & CGB_MODE, p_->loadflags & GBA_FLAG, externalRead(0x143) & 0x80);
+
 		p_->cpu.loadState(state);
 		
-		if (p_->loadflags & GBA_FLAG)
+		if (p_->loadflags & GBA_FLAG && !(p_->loadflags & NO_BIOS))
 			p_->cpu.stall(971616); // GBA takes 971616 cycles to switch to CGB mode; CGB CPU is inactive during this time.
 	}
 }
@@ -136,10 +139,13 @@ LoadRes GB::load(char const *romfiledata, unsigned romfilelength, unsigned const
 		p_->cpu.setStatePtrs(state);
 		p_->loadflags = flags;
 		setInitState(state, flags & CGB_MODE, flags & GBA_FLAG);
+		if (flags & NO_BIOS)
+			setPostBiosState(state, flags & CGB_MODE, flags & GBA_FLAG, externalRead(0x143) & 0x80);
+
 		setInitStateCart(state);
 		p_->cpu.loadState(state);
 
-		if (flags & GBA_FLAG)
+		if (flags & GBA_FLAG && !(flags & NO_BIOS))
 			p_->cpu.stall(971616); // GBA takes 971616 cycles to switch to CGB mode; CGB CPU is inactive during this time.
 	}
 
@@ -153,6 +159,10 @@ int GB::loadBios(char const* biosfiledata, std::size_t size) {
 
 bool GB::isCgb() const {
 	return p_->cpu.isCgb();
+}
+
+bool GB::isCgbDmg() const {
+	return p_->cpu.isCgbDmg();
 }
 
 bool GB::isLoaded() const {

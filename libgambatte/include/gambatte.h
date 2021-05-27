@@ -23,7 +23,7 @@
 #include "loadres.h"
 #include <cstddef>
 #include <string>
-#include "newstate.h"
+#include "../src/newstate.h"
 
 namespace gambatte {
 
@@ -54,18 +54,26 @@ public:
 		CGB_MODE         = 1, /**< Treat the ROM as having CGB support regardless of what its header advertises. */
 		GBA_FLAG         = 2, /**< Use GBA intial CPU register values when in CGB mode. */
 		MULTICART_COMPAT = 4, /**< Use heuristics to detect and support some multicart MBCs disguised as MBC1. */
+		NO_BIOS          = 8  /**< Use heuristics to boot without a BIOS. */
 	};
 
 	/**
 	  * Load ROM image.
 	  *
-	  * @param romfile  Path to rom image file. Typically a .gbc, .gb, or .zip-file (if
-	  *                 zip-support is compiled in).
-	  * @param flags    ORed combination of LoadFlags.
+	  * @param romfiledata    Buffer with ROM data.
+	  * @param romfilelegnth  Length of ROM data in bytes.
+	  * @param flags          ORed combination of LoadFlags.
 	  * @return 0 on success, negative value on failure.
 	  */
 	LoadRes load(char const *romfiledata, unsigned romfilelength, unsigned flags);
 
+	/**
+	  * Load BIOS image.
+	  *
+	  * @param biosfiledata   Buffer with BIOS data.
+	  * @param size           Length of BIOS data in bytes.
+	  * @return 0 on success, negative value on failure.
+	  */
 	int loadBios(char const *biosfiledata, std::size_t size);
 
 	/**
@@ -87,9 +95,6 @@ public:
 	  * The return value indicates whether a new video frame has been drawn, and the
 	  * exact time (in number of samples) at which it was completed.
 	  *
-	  * @param videoBuf 160x144 RGB32 (native endian) video frame buffer or 0
-	  * @param pitch distance in number of pixels (not bytes) from the start of one line
-	  *              to the next in videoBuf.
 	  * @param audioBuf buffer with space >= samples + 2064
 	  * @param samples  in: number of stereo samples to produce,
 	  *                out: actual number of samples produced
@@ -98,8 +103,19 @@ public:
 	  */
 	std::ptrdiff_t runFor(gambatte::uint_least32_t *soundBuf, std::size_t &samples);
 
+	/**
+	  * Blit from internal framebuffer to provided framebuffer.
+	  *
+	  * @param videoBuf 160x144 RGB32 (native endian) video frame buffer or 0
+	  * @param pitch distance in number of pixels (not bytes) from the start of one line
+	  *              to the next in videoBuf.
+	  */
 	void blitTo(gambatte::uint_least32_t *videoBuf, std::ptrdiff_t pitch);
 
+	/**
+	  * Sets layers to be rendered.
+	  * @param layermask, 1=BG, 2=OBJ, 4=WINDOW
+	  */
 	void setLayers(unsigned mask);
 
 	/**
@@ -114,27 +130,52 @@ public:
 	  */
 	void setDmgPaletteColor(int palNum, int colorNum, unsigned long rgb32);
 
+	/**
+	  * Set CGB palette lookup.
+	  * @param uint32[32768], input color (r,g,b) is at lut[r | g << 5 | b << 10]
+	  */
 	void setCgbPalette(unsigned *lut);
 
 	/** Sets the callback used for getting input state. */
 	void setInputGetter(unsigned (*getInput)());
 
+	/** Sets a callback to occur immediately before every CPU read, except for opcode first byte fetches. */
 	void setReadCallback(MemoryCallback);
+
+	/** Sets a callback to occur immediately before every CPU write. */
 	void setWriteCallback(MemoryCallback);
+
+	/** Sets a callback to occur immediately before every CPU opcode (first byte) fetch. */
 	void setExecCallback(MemoryCallback);
+
+	/** Sets a callback which enables CD Logger feedback. */
 	void setCDCallback(CDCallback);
+
+	/** Sets a callback to occur immediately before each opcode is executed. */
 	void setTraceCallback(void (*callback)(void *));
+
+	/**
+	  * Sets a callback to occur when LY reaches a particular scanline (so at the beginning of the scanline).
+	  * When the LCD is active, typically 145 will be the first callback after the beginning of frame advance,
+	  * and 144 will be the last callback right before frame advance returns.
+	  * @param sl Scanline for callback, 0-153 inclusive
+	  */
 	void setScanlineCallback(void (*callback)(), int sl);
+
+	/** Sets the link data sent callback. */
 	void setLinkCallback(void(*callback)());
 
 	/** Use cycle-based RTC instead of real-time. */
 	void setTimeMode(bool useCycles);
 
-	/** adjust the assumed clock speed of the CPU compared to the RTC */
+	/** Adjust the assumed clock speed of the CPU compared to the RTC */
 	void setRtcDivisorOffset(long const rtcDivisorOffset);
 
 	/** Returns true if the currently loaded ROM image is treated as having CGB support. */
 	bool isCgb() const;
+
+	/** Returns true if the currently loaded ROM image is treated as having CGB-DMG support. */
+	bool isCgbDmg() const;
 
 	/** Returns true if a ROM image is loaded. */
 	bool isLoaded() const;
@@ -160,11 +201,33 @@ public:
 	/** ROM header title of currently loaded ROM image. */
 	std::string const romTitle() const;
 
+	/**
+	  * Read a single byte from the CPU bus. This includes all RAM, ROM, MMIO, etc as
+	  * it is visible to the CPU (including mappers). While there is no cycle cost to
+	  * these reads, there may be other side effects! Use at your own risk.
+	  *
+	  * @param addr system bus address
+	  * @return byte read
+	  */
 	unsigned char externalRead(unsigned short addr);
+
+	/**
+	  * Write a single byte to the CPU bus. While there is no cycle cost to these
+	  * writes, there can be quite a few side effects. Use at your own risk.
+	  *
+	  * @param addr system bus address
+	  * @param val  byte to write
+	  */
 	void externalWrite(unsigned short addr, unsigned char val);
 
+	/** Link cable stuff; never touch for normal operation. */
 	int linkStatus(int which);
 
+	/**
+	  * Get reg and flag values.
+	  * @param dest length of at least 10, please
+	  *             [pc, sp, a, b, c, d, e, f, h, l]
+	  */
 	void getRegs(int *dest);
 	
 	/**
@@ -181,7 +244,13 @@ public:
 	  */
 	void setRtcRegs(unsigned long *src);
 
+	/**
+	  * Sets addresses the CPU will interrupt processing at before the instruction.
+	  * Format is 0xBBAAAA where AAAA is an address and BB is an optional ROM bank.
+	  */
 	void setInterruptAddresses(int *addrs, int numAddrs);
+
+	/** Gets the address the CPU was interrupted at or -1 if stopped normally. */
 	int getHitInterruptAddress();
 
 	template<bool isReader>void SyncState(NewState *ns);
