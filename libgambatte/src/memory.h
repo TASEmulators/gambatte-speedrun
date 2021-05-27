@@ -323,7 +323,7 @@ private:
 	unsigned char serialCnt_;
 	bool blanklcd_;
 	bool biosMode_;
-	bool agbMode_;
+	bool agbFlag_;
 	unsigned long basetime_;
 	bool stopped_;
 	enum HdmaState { hdma_low, hdma_high, hdma_requested } haltHdmaState_;
