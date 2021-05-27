@@ -23,7 +23,7 @@
 #include "loadres.h"
 #include <cstddef>
 #include <string>
-#include "newstate.h"
+#include "../src/newstate.h"
 
 namespace gambatte {
 
