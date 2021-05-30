@@ -721,7 +721,7 @@ void CPU::process(unsigned long const cycles) {
 				if (zf & 0xFF) {
 					jr_disp();
 				} else {
-					PC_MOD((pc + 1) & 0xFFFF);
+					PC_READ(operandHigh, operandHigh);
 				}
 
 				break;
@@ -787,7 +787,7 @@ void CPU::process(unsigned long const cycles) {
 				// Jump to value of next (signed) byte in memory+current address if ZF is set:
 			case 0x28:
 				if (zf & 0xFF) {
-					PC_MOD((pc + 1) & 0xFFFF);
+					PC_READ(operandHigh, operandHigh);
 				} else {
 					jr_disp();
 				}
@@ -836,7 +836,7 @@ void CPU::process(unsigned long const cycles) {
 				// Jump to value of next (signed) byte in memory+current address if CF is unset:
 			case 0x30:
 				if (cf & 0x100) {
-					PC_MOD((pc + 1) & 0xFFFF);
+					PC_READ(operandHigh, operandHigh);
 				} else {
 					jr_disp();
 				}
@@ -925,7 +925,7 @@ void CPU::process(unsigned long const cycles) {
 				if (cf & 0x100) {
 					jr_disp();
 				} else {
-					PC_MOD((pc + 1) & 0xFFFF);
+					PC_READ(operandHigh, operandHigh);
 				}
 
 				break;
@@ -1182,8 +1182,8 @@ void CPU::process(unsigned long const cycles) {
 				if (zf & 0xFF) {
 					jp_nn();
 				} else {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				}
 
 				break;
@@ -1199,8 +1199,8 @@ void CPU::process(unsigned long const cycles) {
 				if (zf & 0xFF) {
 					call_nn();
 				} else {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				}
 
 				break;
@@ -1241,8 +1241,8 @@ void CPU::process(unsigned long const cycles) {
 				// Jump to address stored in next two bytes in memory if ZF is set:
 			case 0xCA:
 				if (zf & 0xFF) {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				} else {
 					jp_nn();
 				}
@@ -1252,9 +1252,9 @@ void CPU::process(unsigned long const cycles) {
 
 				// CB OPCODES (Shifts, rotates and bits):
 			case 0xCB:
-				PC_READ(opcode, operandHigh);
+				PC_READ(operandHigh, operandHigh);
 
-				switch (opcode) {
+				switch (operandHigh) {
 				case 0x00: rlc_r(b); break;
 				case 0x01: rlc_r(c); break;
 				case 0x02: rlc_r(d); break;
@@ -1671,8 +1671,8 @@ void CPU::process(unsigned long const cycles) {
 				// address stored in next two bytes in memory, if ZF is set:
 			case 0xCC:
 				if (zf & 0xFF) {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				} else {
 					call_nn();
 				}
@@ -1714,8 +1714,8 @@ void CPU::process(unsigned long const cycles) {
 				// Jump to address stored in next two bytes in memory if CF is unset:
 			case 0xD2:
 				if (cf & 0x100) {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				} else {
 					jp_nn();
 				}
@@ -1731,8 +1731,8 @@ void CPU::process(unsigned long const cycles) {
 				// address stored in next two bytes in memory, if CF is unset:
 			case 0xD4:
 				if (cf & 0x100) {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				} else {
 					call_nn();
 				}
@@ -1784,8 +1784,8 @@ void CPU::process(unsigned long const cycles) {
 				if (cf & 0x100) {
 					jp_nn();
 				} else {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				}
 
 				break;
@@ -1794,15 +1794,15 @@ void CPU::process(unsigned long const cycles) {
 				cycleCounter = freeze(mem_, cycleCounter);
 				break;
 
-				// call z,nn (24;12 cycles):
+				// call c,nn (24;12 cycles):
 				// Push address of next instruction onto stack and then jump to
 				// address stored in next two bytes in memory, if CF is set:
 			case 0xDC:
 				if (cf & 0x100) {
 					call_nn();
 				} else {
-					PC_MOD((pc + 2) & 0xFFFF);
-					cycleCounter += 4;
+					PC_READ(operandHigh, operandHigh);
+					PC_READ(operandLow, operandLow);
 				}
 
 				break;
