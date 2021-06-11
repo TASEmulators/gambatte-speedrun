@@ -345,14 +345,13 @@ loadRom:
 		std::fprintf(stderr, "Failed to load ROM image file %s\n", file.c_str());
 		std::abort();
 	}
-	std::size_t const filesize = rom->size();
-	
+	std::size_t const filesize = rom->size();	
+	char romdata[filesize];
+	rom->read(reinterpret_cast<char *>(romdata), sizeof romdata);
+
 	int flags = (cgb * gambatte::GB::LoadFlag::CGB_MODE)
 	| ((cgb && agb) * gambatte::GB::LoadFlag::GBA_FLAG)
 	| (!((agb && useAgbBios) || (cgb && useCgbBios) || (!cgb && useDmgBios)) * gambatte::GB::LoadFlag::NO_BIOS);
-	
-	char romdata[filesize];
-	rom->read(reinterpret_cast<char *>(romdata), sizeof romdata);
 
 	if (gb.load(romdata, filesize, flags)) {
 		std::fprintf(stderr, "Failed to load ROM image file %s\n", file.c_str());
@@ -373,10 +372,14 @@ loadRom:
 			gb.setDmgPaletteColor(i / 4, i % 4, (3 - (i & 3)) * 85 * 0x010101ul);
 	}
 
-	std::putchar(cgb ? 'c' : 'd');
+	std::putchar(cgb ? (agb ? 'a' : 'c') : 'd');
 	std::fflush(stdout);
 
-	long samplesLeft = samples_per_frame * ((cgb ? 186 : 334) + 15);
+	long biosLength = cgb ? 186 : 334;
+	if (flags & gambatte::GB::LoadFlag::NO_BIOS)
+		biosLength = 0;
+
+	long samplesLeft = samples_per_frame * (biosLength + 15);
 
 	while (samplesLeft >= 0) {
 		std::size_t samples = samples_per_frame;
