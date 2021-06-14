@@ -147,9 +147,11 @@ public:
 			if (map.type != eCDLog_AddrType_None)
 				cdCallback_(map.addr, map.type, eCDLog_Flags_Data);
 		}
-		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin))
-			return lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF;
-
+		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin)) {
+			return cart_.rmem(p >> 12)
+				? (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF)
+				: nontrivial_read(p, cc);
+		}
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
 			return cart_.rmem(p >> 12)
@@ -175,9 +177,11 @@ public:
 			if (map.type != eCDLog_AddrType_None)
 				cdCallback_(map.addr, map.type, first ? eCDLog_Flags_ExecFirst : eCDLog_Flags_ExecOperand);
 		}
-		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin))
-			return lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF;
-
+		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin)) {
+			return cart_.rmem(p >> 12)
+				? (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF)
+				: nontrivial_read(p, cc);
+		}
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
 			return cart_.rmem(p >> 12)
@@ -196,9 +200,11 @@ public:
 		if (biosMode_ && p < biosSize_ && !(p >= 0x100 && p < 0x200))
 			return readBios(p);
 
-		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin))
-			return lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF;
-
+		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin)) {
+			return cart_.rmem(p >> 12)
+				? (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? cartBus_ : 0xFF)
+				: nontrivial_peek(p, cc);
+		}
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
 			return cart_.rmem(p >> 12)
