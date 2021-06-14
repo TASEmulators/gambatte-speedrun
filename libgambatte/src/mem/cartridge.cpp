@@ -54,6 +54,10 @@ public:
 		return 1;
 	}
 
+	virtual bool disabledRam() const {
+		return !enableRam_;
+	}
+
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {
 		if (p < rambank_size()) {
 			enableRam_ = (data & 0xF) == 0xA;
@@ -98,6 +102,10 @@ public:
 
 	virtual unsigned char curRomBank() const {
 		return rombank_;
+	}
+
+	virtual bool disabledRam() const {
+		return !enableRam_;
 	}
 
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {
@@ -177,6 +185,10 @@ public:
 		return rombank_;
 	}
 
+	virtual bool disabledRam() const {
+		return !enableRam_;
+	}
+
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {
 		switch (p >> 13 & 3) {
 		case 0:
@@ -252,6 +264,10 @@ public:
 		return rombank_;
 	}
 
+	virtual bool disabledRam() const {
+		return true;
+	}
+
 	virtual void romWrite(unsigned const p, unsigned const /*data*/, unsigned long const /*cc*/) {
 		rombank_ = (p & 0xFF) << 1;
 		setRombank();
@@ -293,6 +309,10 @@ public:
 
 	virtual unsigned char curRomBank() const {
 		return rombank_;
+	}
+
+	virtual bool disabledRam() const {
+		return !enableRam_;
 	}
 
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {
@@ -343,6 +363,10 @@ public:
 
 	virtual unsigned char curRomBank() const {
 		return rombank_;
+	}
+
+	virtual bool disabledRam() const {
+		return !enableRam_;
 	}
 
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const cc) {
@@ -438,6 +462,10 @@ public:
 
 	virtual unsigned char curRomBank() const {
 		return rombank_;
+	}
+
+	virtual bool disabledRam() const {
+		return !enableRam_;
 	}
 
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {
@@ -599,6 +627,10 @@ public:
 
 	virtual unsigned char curRomBank() const {
 		return rombank_;
+	}
+
+	virtual bool disabledRam() const {
+		return !enableRam_;
 	}
 
 	virtual void romWrite(unsigned const p, unsigned const data, unsigned long const /*cc*/) {

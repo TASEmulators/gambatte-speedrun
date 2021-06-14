@@ -51,6 +51,8 @@ Memory::Memory(Interrupter const& interrupter)
 , getInput_(0)
 , divLastUpdate_(0)
 , lastOamDmaUpdate_(disabled_time)
+, lastCartBusUpdate_(0)
+, cartBusPullUpTime_(8)
 , lcd_(ioamhram_, 0, VideoInterruptRequester(intreq_))
 , interrupter_(interrupter)
 , dmaSource_(0)
@@ -58,6 +60,7 @@ Memory::Memory(Interrupter const& interrupter)
 , oamDmaPos_(-2u & 0xFF)
 , oamDmaStartPos_(0)
 , serialCnt_(0)
+, cartBus_(0xFF)
 , blanklcd_(false)
 , LINKCABLE_(false)
 , linkClockTrigger_(false)
@@ -696,6 +699,9 @@ unsigned Memory::nontrivial_read(unsigned const p, unsigned long const cc) {
 			if (cart_.rsrambankptr())
 				return cart_.rsrambankptr()[p];
 
+			if (cart_.disabledRam())
+				return cartBus_;
+
 			if (cart_.isHuC3())
 				return cart_.HuC3Read(p, cc);
 
@@ -773,6 +779,9 @@ unsigned Memory::nontrivial_peek(unsigned const p, unsigned long const cc) {
 
 			if (cart_.rsrambankptr())
 				return cart_.rsrambankptr()[p];
+			
+			if (cart_.disabledRam())
+				return cartBus_;
 
 			if (!cart_.isHuC3())
 				return cart_.rtcRead();
@@ -1404,6 +1413,7 @@ SYNCFUNC(Memory)
 	NSS(ioamhram_);
 	NSS(divLastUpdate_);
 	NSS(lastOamDmaUpdate_);
+	NSS(lastCartBusUpdate_);
 	SSS(intreq_);
 	SSS(tima_);
 	SSS(lcd_);
@@ -1412,6 +1422,7 @@ SYNCFUNC(Memory)
 	NSS(dmaDestination_);
 	NSS(oamDmaPos_);
 	NSS(serialCnt_);
+	NSS(cartBus_);
 	NSS(blanklcd_);
 	NSS(biosMode_);
 	NSS(stopped_);
