@@ -152,8 +152,9 @@ public:
 
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
-			return ((cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_read(p, cc)) & 0x0F)
-			| (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0);
+			return cart_.rmem(p >> 12)
+				? (cart_.rmem(p >> 12)[p] & 0x0F) | (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0)
+				: nontrivial_read(p, cc);
 		}
 		if ((p < mm_vram_begin) || (!isCgb() && (p >= mm_wram_begin && p < mm_oam_begin))) {
 			cartBus_ = cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_read(p, cc);
@@ -179,8 +180,9 @@ public:
 
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
-			return ((cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_read(p, cc)) & 0x0F)
-			| (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0);
+			return cart_.rmem(p >> 12)
+				? (cart_.rmem(p >> 12)[p] & 0x0F) | (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0)
+				: nontrivial_read(p, cc);
 		}
 		if ((p < mm_vram_begin) || (!isCgb() && (p >= mm_wram_begin && p < mm_oam_begin))) {
 			cartBus_ = cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_read(p, cc);
@@ -199,8 +201,9 @@ public:
 
 		if (cart_.isMbc2() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			p &= 0xA1FF;
-			return ((cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_peek(p, cc)) & 0x0F)
-			| (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0);
+			return cart_.rmem(p >> 12)
+				? (cart_.rmem(p >> 12)[p] & 0x0F) | (lastCartBusUpdate_ + (cartBusPullUpTime_ << isDoubleSpeed()) > cc ? (cartBus_ & 0xF0) : 0xF0)
+				: nontrivial_peek(p, cc);
 		}
 		return cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_peek(p, cc);
 	}
