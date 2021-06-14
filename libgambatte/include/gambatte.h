@@ -32,14 +32,15 @@ enum { BG_PALETTE = 0, SP1_PALETTE = 1, SP2_PALETTE = 2 };
 typedef void (*MemoryCallback)(int32_t address, int64_t cycleOffset);
 typedef void (*CDCallback)(int32_t addr, int32_t addrtype, int32_t flags);
 
-enum eCDLog_AddrType
-{
-	eCDLog_AddrType_ROM, eCDLog_AddrType_HRAM, eCDLog_AddrType_WRAM, eCDLog_AddrType_CartRAM,
+enum eCDLog_AddrType {
+	eCDLog_AddrType_ROM,
+	eCDLog_AddrType_HRAM,
+	eCDLog_AddrType_WRAM,
+	eCDLog_AddrType_CartRAM,
 	eCDLog_AddrType_None
 };
 
-enum eCDLog_Flags
-{
+enum eCDLog_Flags {
 	eCDLog_Flags_ExecFirst = 1,
 	eCDLog_Flags_ExecOperand = 2,
 	eCDLog_Flags_Data = 4,
@@ -170,6 +171,9 @@ public:
 
 	/** Adjust the assumed clock speed of the CPU compared to the RTC */
 	void setRtcDivisorOffset(long const rtcDivisorOffset);
+	
+	/** Sets how long until the cart bus pulls up */
+	void setCartBusPullUpTime(unsigned long const cartBusPullUpTime);
 
 	/** Returns true if the currently loaded ROM image is treated as having CGB support. */
 	bool isCgb() const;

@@ -95,6 +95,8 @@ public:
 	}
 	void setTimeMode(bool useCycles) { mem_.setTimeMode(useCycles, cycleCounter_); }
 	void setRtcDivisorOffset(long const rtcDivisorOffset) { mem_.setRtcDivisorOffset(rtcDivisorOffset); }
+	
+	void setCartBusPullUpTime(unsigned long const cartBusPullUpTime) { mem_.setCartBusPullUpTime(cartBusPullUpTime); }
 
 	void setBios(char const *buffer, std::size_t size) { mem_.setBios(buffer, size); }
 

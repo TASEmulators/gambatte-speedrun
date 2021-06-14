@@ -37,7 +37,7 @@ namespace {
 
 using namespace gambatte;
 
-	GBEXPORT GB * gambatte_create() {
+GBEXPORT GB * gambatte_create() {
 	return new GB();
 }
 
@@ -121,6 +121,10 @@ GBEXPORT void gambatte_setlinkcallback(GB *g, void(*callback)()) {
 	g->setLinkCallback(callback);
 }
 
+GBEXPORT void gambatte_setcartbuspulluptime(GB *g, unsigned cartBusPullUpTime) {
+	g->setCartBusPullUpTime(cartBusPullUpTime);
+}
+
 GBEXPORT int gambatte_iscgb(GB *g) {
 	return g->isCgb();
 }
@@ -189,8 +193,7 @@ GBEXPORT void gambatte_cpuwrite(GB *g, unsigned short addr, unsigned char val) {
 	g->externalWrite(addr, val);
 }
 
-GBEXPORT int gambatte_linkstatus(GB *g, int which)
-{
+GBEXPORT int gambatte_linkstatus(GB *g, int which) {
 	return g->linkStatus(which);
 }
 

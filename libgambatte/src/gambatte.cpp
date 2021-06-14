@@ -131,6 +131,10 @@ void GB::setRtcDivisorOffset(long const rtcDivisorOffset) {
 	p_->cpu.setRtcDivisorOffset(rtcDivisorOffset);
 }
 
+void GB::setCartBusPullUpTime(unsigned long const cartBusPullUpTime) {
+	p_->cpu.setCartBusPullUpTime(cartBusPullUpTime);
+}
+
 LoadRes GB::load(char const *romfiledata, unsigned romfilelength, unsigned const flags) {
 	LoadRes const loadres = p_->cpu.load(romfiledata, romfilelength, flags);
 
