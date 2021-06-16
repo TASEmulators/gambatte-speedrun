@@ -492,6 +492,7 @@ unsigned long Memory::resetCounters(unsigned long cc) {
 
 	unsigned long const oldCC = cc;
 	cc -= dec;
+	lastCartBusUpdate -= dec;
 	intreq_.resetCc(oldCC, cc);
 	cart_.resetCc(oldCC, cc);
 	tima_.resetCc(oldCC, cc, TimaInterruptRequester(intreq_));
