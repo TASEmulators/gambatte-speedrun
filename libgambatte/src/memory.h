@@ -166,8 +166,8 @@ public:
 		return cart_.rmem(p >> 12) ? cart_.rmem(p >> 12)[p] : nontrivial_read(p, cc);
 	}
 
-	unsigned read_excb(unsigned p, unsigned long cc, bool first) {
-		if (execCallback_)
+	unsigned read_excb(unsigned p, unsigned long cc, bool opcode) {
+		if (opcode && execCallback_)
 			execCallback_(p, (cc - basetime_) >> 1);
 
 		if (biosMode_ && p < biosSize_ && !(p >= 0x100 && p < 0x200))
@@ -175,7 +175,7 @@ public:
 		else if (cdCallback_) {
 			CDMapResult map = CDMap(p);
 			if (map.type != eCDLog_AddrType_None)
-				cdCallback_(map.addr, map.type, first ? eCDLog_Flags_ExecFirst : eCDLog_Flags_ExecOperand);
+				cdCallback_(map.addr, map.type, opcode ? eCDLog_Flags_ExecOpcode : eCDLog_Flags_ExecOperand);
 		}
 		if (cart_.disabledRam() && (p >= mm_sram_begin && p < mm_wram_begin)) {
 			return cart_.rmem(p >> 12)

@@ -237,6 +237,10 @@ void GB::getRegs(int *dest) {
 	p_->cpu.getRegs(dest);
 }
 
+void GB::setRegs(int *src) {
+	p_->cpu.setRegs(src);
+}
+
 void GB::getRtcRegs(unsigned long *dest) {
 	p_->cpu.getRtcRegs(dest);
 }

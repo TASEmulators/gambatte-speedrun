@@ -41,7 +41,7 @@ enum eCDLog_AddrType {
 };
 
 enum eCDLog_Flags {
-	eCDLog_Flags_ExecFirst = 1,
+	eCDLog_Flags_ExecOpcode = 1,
 	eCDLog_Flags_ExecOperand = 2,
 	eCDLog_Flags_Data = 4,
 };
@@ -233,6 +233,13 @@ public:
 	  *             [pc, sp, a, b, c, d, e, f, h, l]
 	  */
 	void getRegs(int *dest);
+	
+	/**
+	  * Set reg and flag values.
+	  * @param src length of at least 10, please
+	  *            [pc, sp, a, b, c, d, e, f, h, l]
+	  */
+	void setRegs(int *src);
 	
 	/**
 	  * Get MBC3 RTC reg values.

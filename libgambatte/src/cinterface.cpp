@@ -201,6 +201,10 @@ GBEXPORT void gambatte_getregs(GB *g, int *dest) {
 	g->getRegs(dest);
 }
 
+GBEXPORT void gambatte_setregs(GB *g, int *src) {
+	g->setRegs(src);
+}
+
 GBEXPORT void gambatte_getrtcregs(GB *g, unsigned long *dest) {
 	g->getRtcRegs(dest);
 }
