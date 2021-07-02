@@ -215,7 +215,12 @@ unsigned long Memory::event(unsigned long cc) {
 			unsigned long blitTime = intreq_.eventTime(intevent_blit);
 
 			if (lcden || blanklcd_) {
-				if (intreq_.eventTime(intevent_unhalt) == disabled_time)
+				//if (intreq_.eventTime(intevent_unhalt) == disabled_time)
+				//FIXME: This if statement comes from upstream, although it seems incomplete.
+				//Upstream does lcd_.blackScreen if this if statement is false,
+				//which is correct in some contexts for stop mode/speed switch, although this affects any kind of stop mode,
+				//and additionally affects the hacky mode switch for GBA->GBC.
+				//Speed switch timing is inaccurate anyways, so some refactoring work will be needed in the future in general for stop mode
 					lcd_.updateScreen(blanklcd_, cc);
 
 				intreq_.setEventTime<intevent_blit>(disabled_time);

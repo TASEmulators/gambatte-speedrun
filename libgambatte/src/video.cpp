@@ -191,16 +191,20 @@ void clear(T *buf, unsigned long color, std::ptrdiff_t dpitch) {
 void LCD::updateScreen(bool const blanklcd, unsigned long const cycleCounter) {
 	update(cycleCounter);
 
-	if (blanklcd && ppu_.frameBuf().fb()) {
-		unsigned long color = (isCgb() && !isCgbDmg()) ? gbcToRgb32(0xFFFF) : dmgColorsRgb32_[0];
-		clear(ppu_.frameBuf().fb(), color, ppu_.frameBuf().pitch());
-	}
+	if (blanklcd)
+		whiteScreen();
+}
+
+void LCD::whiteScreen() {
+	// TODO: Use during DMG stop mode
+	if (ppu_.frameBuf().fb())
+		clear(ppu_.frameBuf().fb(), 0xFFFFFFFF, ppu_.frameBuf().pitch());
 }
 
 void LCD::blackScreen() {
-	if (ppu_.frameBuf().fb()) {
-		clear(ppu_.frameBuf().fb(), gbcToRgb32(0x0000), ppu_.frameBuf().pitch());
-	}
+	// TODO: Use during Mode 3 CGB stop mode
+	if (ppu_.frameBuf().fb())
+		clear(ppu_.frameBuf().fb(), 0xFF000000, ppu_.frameBuf().pitch());
 }
 
 void LCD::resetCc(unsigned long const oldCc, unsigned long const newCc) {

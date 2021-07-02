@@ -98,6 +98,7 @@ public:
 	}
 
 	void updateScreen(bool blanklcd, unsigned long cc);
+	void whiteScreen();
 	void blackScreen();
 	void resetCc(unsigned long oldCC, unsigned long newCc);
 	void speedChange(unsigned long cycleCounter);
