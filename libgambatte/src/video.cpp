@@ -202,7 +202,7 @@ void LCD::whiteScreen() {
 }
 
 void LCD::blackScreen() {
-	// TODO: Use during Mode 3 CGB stop mode
+	// TODO: Use during Mode 1 CGB stop mode
 	if (ppu_.frameBuf().fb())
 		clear(ppu_.frameBuf().fb(), 0xFF000000, ppu_.frameBuf().pitch());
 }

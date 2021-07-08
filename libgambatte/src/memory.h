@@ -58,7 +58,7 @@ public:
 
 	bool getMemoryArea(int which, unsigned char **data, int *length);
 
-	unsigned long stop(unsigned long cycleCounter, bool& skip);
+	unsigned long stop(unsigned long cycleCounter, bool& prefetched);
 	void stall(unsigned long cycleCounter, unsigned long cycles);
 	bool isCgb() const { return lcd_.isCgb(); }
 	bool isCgbDmg() const { return lcd_.isCgbDmg(); }
@@ -355,7 +355,7 @@ private:
 	MemoryCallback execCallback_;
 	CDCallback cdCallback_;
 	void(*linkCallback_)();
-	bool LINKCABLE_;
+	bool linkCable_;
 	bool linkClockTrigger_;
 
 	void decEventCycles(IntEventId eventId, unsigned long dec);

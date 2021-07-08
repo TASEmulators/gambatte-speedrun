@@ -3323,6 +3323,7 @@ void gambatte::setInitState(SaveState &state, const bool cgb, const bool agb) {
 	state.mem.nextSerialtime = disabled_time;
 	state.mem.lastOamDmaUpdate = disabled_time;
 	state.mem.unhaltTime = disabled_time;
+	state.mem.lastCartBusUpdate = 0;
 	state.mem.minIntTime = 0;
 	state.mem.rombank = 1;
 	state.mem.dmaSource = 0;

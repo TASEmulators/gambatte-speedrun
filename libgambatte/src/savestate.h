@@ -73,6 +73,7 @@ struct SaveState {
 		unsigned long lastOamDmaUpdate;
 		unsigned long minIntTime;
 		unsigned long unhaltTime;
+		unsigned long lastCartBusUpdate;
 		unsigned short rombank;
 		unsigned short dmaSource;
 		unsigned short dmaDestination;
