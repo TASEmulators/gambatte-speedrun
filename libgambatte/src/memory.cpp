@@ -454,9 +454,10 @@ unsigned long Memory::stop(unsigned long cc, bool &prefetched) {
 				ackDmaReq(intreq_);
 			intreq_.halt();
 		}
-		// oddly, cc seems to go backwards in the case of a stop
-		// likely due to the next byte being read/skipped during stop mode, where timing is "frozen"
-		cc -= 4;
+		// ensure that no updates with a previous cc occur.
+		// cc is weird here, stop ends up causing "time travel" effects, leading to a cc which is less than the starting cc
+		// unfortunately, gambatte doesn't have a way to handle this gracefully, so cc must be incremented regardless
+		cc += 8;
 	}
 	else {
 		// FIXME: test and implement stop correctly.
