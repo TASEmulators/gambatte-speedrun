@@ -259,14 +259,19 @@ unsigned long LCD::m0TimeOfCurrentLine(unsigned long const cc) {
 		nextM0Time_.predictedNextM0Time());
 }
 
-void LCD::enableHdma(unsigned long const cc) {
-	if (cc >= eventTimes_.nextEventTime())
-		update(cc);
+void LCD::enableHdma(unsigned long const cc, bool lcden) {
+	if (lcden) {
+		if (cc >= eventTimes_.nextEventTime())
+			update(cc);
 
-	if (::isHdmaPeriod(ppu_.lyCounter(), m0TimeOfCurrentLine(cc), cc + 4))
+		if (::isHdmaPeriod(ppu_.lyCounter(), m0TimeOfCurrentLine(cc), cc + 4))
+			eventTimes_.flagHdmaReq();
+
+		eventTimes_.setm<memevent_hdma>(nextM0Time_.predictedNextM0Time());
+	} else {
 		eventTimes_.flagHdmaReq();
-
-	eventTimes_.setm<memevent_hdma>(nextM0Time_.predictedNextM0Time());
+		eventTimes_.setm<memevent_hdma>(disabled_time - 1);
+	}
 }
 
 void LCD::disableHdma(unsigned long const cycleCounter) {

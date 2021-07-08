@@ -197,7 +197,6 @@ unsigned long Memory::event(unsigned long cc) {
 
 		intreq_.unhalt();
 		intreq_.setEventTime<intevent_unhalt>(disabled_time);
-		stopped_ = false;
 		break;
 	case intevent_end:
 		intreq_.setEventTime<intevent_end>(disabled_time - 1);
@@ -312,7 +311,7 @@ unsigned long Memory::dma(unsigned long cc) {
 
 	dmaLength -= length;
 
-	if (!(ioamhram_[0x140] & lcdc_en))
+	if (!(ioamhram_[0x140] & lcdc_en) && gdmaReqFlagged(intreq_)) // FIXME: This is wrong for HDMA, but is it right for GDMA?
 		dmaLength = 0;
 
 	unsigned long lOamDmaUpdate = lastOamDmaUpdate_;
@@ -1197,10 +1196,7 @@ void Memory::nontrivial_ff_write(unsigned const p, unsigned data, unsigned long 
 				}
 			} else {
 				if (data & 0x80) {
-					if (ioamhram_[0x140] & lcdc_en) {
-						lcd_.enableHdma(cc);
-					} else
-						flagHdmaReq(intreq_);
+					lcd_.enableHdma(cc, ioamhram_[0x140] & lcdc_en);
 				} else
 					flagGdmaReq(intreq_);
 			}
