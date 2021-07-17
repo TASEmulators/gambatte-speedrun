@@ -44,11 +44,9 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>..\..\..\..\output\dll\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\..\..\..\Assets\dll\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -167,4 +165,10 @@
       <UserProperties />
     </VisualStudio>
   </ProjectExtensions>
-</Project>
+  <Target Name="CopyToHawkAssets" AfterTargets="PostBuildEvent">
+    <Copy SourceFiles="$(OutDir)libgambatte.dll" DestinationFolder="$(ProjectDir)../../../../Assets/dll" SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyToHawkOutput" AfterTargets="PostBuildEvent" Condition=" Exists('$(ProjectDir)../../../../output/dll') ">
+    <Copy SourceFiles="$(OutDir)libgambatte.dll" DestinationFolder="$(ProjectDir)../../../../output/dll" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
