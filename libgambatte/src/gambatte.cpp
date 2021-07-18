@@ -146,7 +146,7 @@ LoadRes GB::load(char const *romfiledata, unsigned romfilelength, unsigned const
 		if (flags & NO_BIOS)
 			setPostBiosState(state, flags & CGB_MODE, flags & GBA_FLAG, externalRead(0x143) & 0x80);
 
-		setInitStateCart(state);
+		setInitStateCart(state, flags & CGB_MODE, flags & GBA_FLAG);
 		p_->cpu.loadState(state);
 
 		if (flags & GBA_FLAG && !(flags & NO_BIOS))

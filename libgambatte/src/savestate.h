@@ -37,7 +37,7 @@ struct SaveState {
 
 		friend class SaverList;
 		friend void setInitState(SaveState &, bool, bool);
-		friend void setInitStateCart(SaveState&);
+		friend void setInitStateCart(SaveState&, bool, bool);
 		friend void setPostBiosState(SaveState &, bool, bool, bool);
 	private:
 		T *ptr;

@@ -3295,20 +3295,13 @@ void gambatte::setInitState(SaveState &state, const bool cgb, const bool agb) {
 	state.cpu.skip = false;
 	state.mem.biosMode = true;
 
-	setInitialVram(state.mem.vram.ptr, cgb);
-
 	if (cgb) {
-		if (agb) {
-			setInitialAgbWram(state.mem.wram.ptr);
+		if (agb)
 			setInitialAgbIoamhram(state.mem.ioamhram.ptr);
-		} else {
-			setInitialCgbWram(state.mem.wram.ptr);
+		else
 			setInitialCgbIoamhram(state.mem.ioamhram.ptr);
-		}
-	} else {
-		setInitialDmgWram(state.mem.wram.ptr);
+	} else
 		setInitialDmgIoamhram(state.mem.ioamhram.ptr);
-	}
 
 	state.mem.ioamhram.ptr[0x104] = 0;
 	state.mem.ioamhram.ptr[0x140] = 0;
@@ -3442,7 +3435,17 @@ void gambatte::setInitState(SaveState &state, const bool cgb, const bool agb) {
 	state.huc3.modeflag = 2; // huc3_none
 }
 
-void gambatte::setInitStateCart(SaveState& state) {
+void gambatte::setInitStateCart(SaveState& state, const bool cgb, const bool agb) {
+	setInitialVram(state.mem.vram.ptr, cgb);
+
+	if (cgb) {
+		if (agb)
+			setInitialAgbWram(state.mem.wram.ptr);
+		else
+			setInitialCgbWram(state.mem.wram.ptr);
+	} else
+		setInitialDmgWram(state.mem.wram.ptr);
+
 	std::memset(state.mem.sram.ptr, 0xFF, state.mem.sram.size());
 
 	state.time.seconds = 0;
@@ -3477,6 +3480,9 @@ void gambatte::setPostBiosState(SaveState &state, bool const cgb, bool const agb
 	state.cpu.l = 0x4D;
 	state.mem.biosMode = false;
 
+	// some games will rely on bios initalization of VRAM
+	setInitialVram(state.mem.vram.ptr, cgb);
+
 	state.mem.ioamhram.ptr[0x111] = 0xBF;
 	state.mem.ioamhram.ptr[0x112] = 0xF3;
 	state.mem.ioamhram.ptr[0x124] = 0x77;
@@ -3490,7 +3496,7 @@ void gambatte::setPostBiosState(SaveState &state, bool const cgb, bool const agb
 
 	state.ppu.videoCycles = cgb ? 144*456ul + 164 + (agb * 4) : 153*456ul + 396;
 	state.ppu.enableDisplayM0Time = state.cpu.cycleCounter;
-	state.ppu.notCgbDmg = notCgbDmg;
+	state.ppu.notCgbDmg = cgb && notCgbDmg;
 
 	state.spu.cycleCounter = (cgb ? 0x1E00 : 0x2400) | (state.cpu.cycleCounter >> 1 & 0x1FF);
 
