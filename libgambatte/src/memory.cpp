@@ -62,7 +62,7 @@ Memory::Memory(Interrupter const& interrupter)
 , serialCnt_(0)
 , cartBus_(0xFF)
 , blanklcd_(false)
-, LINKCABLE_(false)
+, linkCable_(false)
 , linkClockTrigger_(false)
 , haltHdmaState_(hdma_low)
 {
@@ -90,6 +90,7 @@ void Memory::saveRtcState(SaveState& state, unsigned long cc) {
 void Memory::loadState(SaveState const &state) {
 	biosMode_ = state.mem.biosMode;
 	stopped_ = state.mem.stopped;
+	lastCartBusUpdate_ = state.mem.lastCartBusUpdate;
 	psg_.loadState(state);
 	lcd_.loadState(state, state.mem.oamDmaPos < oam_size ? cart_.rdisabledRam() : ioamhram_);
 	tima_.loadState(state, TimaInterruptRequester(intreq_));
@@ -146,7 +147,7 @@ void Memory::setEndtime(unsigned long cc, unsigned long inc) {
 }
 
 void Memory::updateSerial(unsigned long const cc) {
-	if (!LINKCABLE_) {
+	if (!linkCable_) {
 		if (intreq_.eventTime(intevent_serial) != disabled_time) {
 			if (intreq_.eventTime(intevent_serial) <= cc) {
 				ioamhram_[0x101] = (((ioamhram_[0x101] + 1) << serialCnt_) - 1) & 0xFF;
@@ -196,7 +197,6 @@ unsigned long Memory::event(unsigned long cc) {
 
 		intreq_.unhalt();
 		intreq_.setEventTime<intevent_unhalt>(disabled_time);
-		stopped_ = false;
 		break;
 	case intevent_end:
 		intreq_.setEventTime<intevent_end>(disabled_time - 1);
@@ -215,7 +215,12 @@ unsigned long Memory::event(unsigned long cc) {
 			unsigned long blitTime = intreq_.eventTime(intevent_blit);
 
 			if (lcden || blanklcd_) {
-				if (intreq_.eventTime(intevent_unhalt) == disabled_time)
+				//if (intreq_.eventTime(intevent_unhalt) == disabled_time)
+				//FIXME: This if statement comes from upstream, although it seems incomplete.
+				//Upstream does lcd_.blackScreen if this if statement is false,
+				//which is correct in some contexts for stop mode/speed switch, although this affects any kind of stop mode,
+				//and additionally affects the hacky mode switch for GBA->GBC.
+				//Speed switch timing is inaccurate anyways, so some refactoring work will be needed in the future in general for stop mode
 					lcd_.updateScreen(blanklcd_, cc);
 
 				intreq_.setEventTime<intevent_blit>(disabled_time);
@@ -306,7 +311,7 @@ unsigned long Memory::dma(unsigned long cc) {
 
 	dmaLength -= length;
 
-	if (!(ioamhram_[0x140] & lcdc_en))
+	if (!(ioamhram_[0x140] & lcdc_en) && gdmaReqFlagged(intreq_)) // FIXME: This is wrong for HDMA, but is it right for GDMA?
 		dmaLength = 0;
 
 	unsigned long lOamDmaUpdate = lastOamDmaUpdate_;
@@ -405,7 +410,7 @@ void Memory::ackIrq(unsigned bit, unsigned long cc) {
 	intreq_.ackIrq(bit);
 }
 
-unsigned long Memory::stop(unsigned long cc, bool &skip) {
+unsigned long Memory::stop(unsigned long cc, bool &prefetched) {
 	// FIXME: this is incomplete.
 	intreq_.setEventTime<intevent_unhalt>(cc + 0x20000 + 4);
 
@@ -416,14 +421,14 @@ unsigned long Memory::stop(unsigned long cc, bool &skip) {
 		nontrivial_ff_write(0x04, 0, cc);
 		haltHdmaState_ = lcd_.hdmaIsEnabled() && lcd_.isHdmaPeriod(cc)
 			? hdma_high : hdma_low;
-		skip = hdmaReqFlagged(intreq_);
-		if (skip && isDoubleSpeed())
+		prefetched = hdmaReqFlagged(intreq_);
+		if (prefetched && isDoubleSpeed())
 			haltHdmaState_ = hdma_requested;
 		unsigned long const cc_ = cc + 8 * !isDoubleSpeed();
 		if (cc_ >= cc + 4) {
 			if (lastOamDmaUpdate_ != disabled_time)
 				updateOamDma(cc + 4);
-			if (!skip || isDoubleSpeed())
+			if (!prefetched || isDoubleSpeed())
 				ackDmaReq(intreq_);
 			intreq_.halt();
 		}
@@ -444,16 +449,18 @@ unsigned long Memory::stop(unsigned long cc, bool &skip) {
 		if (cc_ < cc + 4) {
 			if (lastOamDmaUpdate_ != disabled_time)
 				updateOamDma(cc + 4);
-			if (!skip || !isDoubleSpeed())
+			if (!prefetched || !isDoubleSpeed())
 				ackDmaReq(intreq_);
 			intreq_.halt();
 		}
 		// ensure that no updates with a previous cc occur.
+		// cc is weird here, stop ends up causing "time travel" effects, leading to a cc which is less than the starting cc
+		// unfortunately, gambatte doesn't have a way to handle this gracefully, so cc must be incremented regardless
 		cc += 8;
 	}
 	else {
 		// FIXME: test and implement stop correctly.
-		skip = halt(cc);
+		prefetched = halt(cc);
 		cc += 4;
 
 		stopped_ = true;
@@ -492,6 +499,7 @@ unsigned long Memory::resetCounters(unsigned long cc) {
 
 	unsigned long const oldCC = cc;
 	cc -= dec;
+	lastCartBusUpdate_ -= dec;
 	intreq_.resetCc(oldCC, cc);
 	cart_.resetCc(oldCC, cc);
 	tima_.resetCc(oldCC, cc, TimaInterruptRequester(intreq_));
@@ -779,7 +787,7 @@ unsigned Memory::nontrivial_peek(unsigned const p, unsigned long const cc) {
 
 			if (cart_.rsrambankptr())
 				return cart_.rsrambankptr()[p];
-			
+
 			if (cart_.disabledRam())
 				return cartBus_;
 
@@ -1188,10 +1196,7 @@ void Memory::nontrivial_ff_write(unsigned const p, unsigned data, unsigned long 
 				}
 			} else {
 				if (data & 0x80) {
-					if (ioamhram_[0x140] & lcdc_en) {
-						lcd_.enableHdma(cc);
-					} else
-						flagHdmaReq(intreq_);
+					lcd_.enableHdma(cc, ioamhram_[0x140] & lcdc_en);
 				} else
 					flagGdmaReq(intreq_);
 			}
@@ -1357,15 +1362,14 @@ bool Memory::getMemoryArea(int which, unsigned char **data, int *length) {
 	if (!data || !length)
 		return false;
 
-	switch (which)
-	{
+	switch (which) {
 	case 4: // oam
 		*data = &ioamhram_[0];
 		*length = 160;
 		return true;
 	case 5: // hram
 		*data = &ioamhram_[384];
-		*length = 128;
+		*length = 127;
 		return true;
 	case 6: // bgpal
 		*data = (unsigned char *)lcd_.bgPalette();
@@ -1380,10 +1384,8 @@ bool Memory::getMemoryArea(int which, unsigned char **data, int *length) {
 	}
 }
 
-int Memory::linkStatus(int which)
-{
-	switch (which)
-	{
+int Memory::linkStatus(int which) {
+	switch (which) {
 	case 256: // ClockSignaled
 		return linkClockTrigger_;
 	case 257: // AckClockSignal
@@ -1392,11 +1394,10 @@ int Memory::linkStatus(int which)
 	case 258: // GetOut
 		return ioamhram_[0x101] & 0xff;
 	case 259: // connect link cable
-		LINKCABLE_ = true;
+		linkCable_ = true;
 		return 0;
 	default: // ShiftIn
-		if (ioamhram_[0x102] & 0x80) // was enabled
-		{
+		if (ioamhram_[0x102] & 0x80) { // was enabled
 			ioamhram_[0x101] = which;
 			ioamhram_[0x102] &= 0x7F;
 			intreq_.flagIrq(8);
@@ -1426,6 +1427,6 @@ SYNCFUNC(Memory)
 	NSS(blanklcd_);
 	NSS(biosMode_);
 	NSS(stopped_);
-	NSS(LINKCABLE_);
+	NSS(linkCable_);
 	NSS(linkClockTrigger_);
 }

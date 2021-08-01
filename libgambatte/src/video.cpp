@@ -191,16 +191,20 @@ void clear(T *buf, unsigned long color, std::ptrdiff_t dpitch) {
 void LCD::updateScreen(bool const blanklcd, unsigned long const cycleCounter) {
 	update(cycleCounter);
 
-	if (blanklcd && ppu_.frameBuf().fb()) {
-		unsigned long color = (isCgb() && !isCgbDmg()) ? gbcToRgb32(0xFFFF) : dmgColorsRgb32_[0];
-		clear(ppu_.frameBuf().fb(), color, ppu_.frameBuf().pitch());
-	}
+	if (blanklcd)
+		whiteScreen();
+}
+
+void LCD::whiteScreen() {
+	// TODO: Use during DMG stop mode
+	if (ppu_.frameBuf().fb())
+		clear(ppu_.frameBuf().fb(), 0xFFFFFFFF, ppu_.frameBuf().pitch());
 }
 
 void LCD::blackScreen() {
-	if (ppu_.frameBuf().fb()) {
-		clear(ppu_.frameBuf().fb(), gbcToRgb32(0x0000), ppu_.frameBuf().pitch());
-	}
+	// TODO: Use during Mode 1 CGB stop mode
+	if (ppu_.frameBuf().fb())
+		clear(ppu_.frameBuf().fb(), 0xFF000000, ppu_.frameBuf().pitch());
 }
 
 void LCD::resetCc(unsigned long const oldCc, unsigned long const newCc) {
@@ -255,14 +259,19 @@ unsigned long LCD::m0TimeOfCurrentLine(unsigned long const cc) {
 		nextM0Time_.predictedNextM0Time());
 }
 
-void LCD::enableHdma(unsigned long const cc) {
-	if (cc >= eventTimes_.nextEventTime())
-		update(cc);
+void LCD::enableHdma(unsigned long const cc, bool lcden) {
+	if (lcden) {
+		if (cc >= eventTimes_.nextEventTime())
+			update(cc);
 
-	if (::isHdmaPeriod(ppu_.lyCounter(), m0TimeOfCurrentLine(cc), cc + 4))
+		if (::isHdmaPeriod(ppu_.lyCounter(), m0TimeOfCurrentLine(cc), cc + 4))
+			eventTimes_.flagHdmaReq();
+
+		eventTimes_.setm<memevent_hdma>(nextM0Time_.predictedNextM0Time());
+	} else {
 		eventTimes_.flagHdmaReq();
-
-	eventTimes_.setm<memevent_hdma>(nextM0Time_.predictedNextM0Time());
+		eventTimes_.setm<memevent_hdma>(disabled_time - 1);
+	}
 }
 
 void LCD::disableHdma(unsigned long const cycleCounter) {

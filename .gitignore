@@ -5,6 +5,7 @@
 config.log
 *.gb
 *.gbc
+*.gba
 *.exe
 *.Debug
 *.Release
